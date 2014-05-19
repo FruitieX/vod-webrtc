@@ -63,7 +63,6 @@ var videoHandler = function(videoElement, bufCallback, chunkCount, chunkBuffer, 
 	// this should be the first chunk in tempChunks
 	var sbChunk = 0;
 
-	var getChunkTimeout;
 	var ms = new MediaSource();
 	var sb;
 
@@ -74,7 +73,7 @@ var videoHandler = function(videoElement, bufCallback, chunkCount, chunkBuffer, 
 	// https://github.com/acolwell/mse-tools
 	ms.addEventListener('sourceclose', function(e) {
 		console.log("MEDIA SOURCE CLOSED: " + e);
-		clearInterval(getChunkTimeout);
+		ms = undefined;
 	});
 
 	ms.addEventListener('sourceopen', function() {
@@ -95,23 +94,25 @@ var videoHandler = function(videoElement, bufCallback, chunkCount, chunkBuffer, 
 		if(currentChunk >= chunkCount)
 			return;
 
-		/*
-		if(videoElement.currentTime + bufMaxSeconds >= videoElement.buffered.end(0)) {
-			console.log("deferring getChunk()");
-			getChunkTimeout = setTimeout(function() {
-				getChunk(currentChunk);
-			}, 100);
-		}
-		*/
-		console.log('getChunk(): currentChunk: ' + currentChunk + ' sbChunk: ' + sbChunk + ' pendingChunkCnt: ' + pendingChunkCnt + ' chunkCount: ' + chunkCount);
+		//console.log('getChunk(): currentChunk: ' + currentChunk + ' sbChunk: ' + sbChunk + ' pendingChunkCnt: ' + pendingChunkCnt + ' chunkCount: ' + chunkCount);
 
 		// if the buffer is not full, fetch more chunks.
 		if(pendingChunkCnt < chunkBuffer) {
 			if(currentChunk > largestChunk)
 				largestChunk = currentChunk;
 
-			bufCallback(currentChunk, storeCallback);
-			pendingChunkCnt++;
+			//console.log(videoElement.buffered.length, videoElement.currentTime, bufMaxSeconds);
+			if(videoElement.buffered.length && (videoElement.currentTime + bufMaxSeconds <= videoElement.buffered.end(0))) {
+				//console.log(videoElement.buffered.end(0));
+				//console.log("deferring getChunk()");
+				setTimeout(function() {
+					if(ms)
+						getChunk(currentChunk);
+				}, 1000);
+			} else {
+				bufCallback(currentChunk, storeCallback);
+				pendingChunkCnt++;
+			}
 		} else {
 			console.log("huh??? getChunk() called even though chunkBuffer is full!");
 			/*
@@ -158,7 +159,6 @@ var videoHandler = function(videoElement, bufCallback, chunkCount, chunkBuffer, 
 		// chunk and append it once all chunks before it have been fetched.
 		pendingChunkCnt--;
 
-		console.log('currentChunk ' + currentChunk + ' calls getChunk with ' + (largestChunk + 1));
 		// start fetching another chunk
 		getChunk(largestChunk + 1);
 
