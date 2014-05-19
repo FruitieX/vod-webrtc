@@ -1,0 +1,108 @@
+<html>
+	<head>
+		<script src="jquery-2.1.1.min.js"></script>
+	</head>
+	<body>
+		<video width=640 height=480 id="video" controls autoplay></video>
+		<button id="loadMore">append chunk</button>
+		<input type="file" id="fileSelector"/>
+		<div id="stats"></div>
+		<script>
+
+var file, cur_start, cur_end;
+var chunkSize = 1024 * 256;
+var bufferSize = 30; // in seconds
+
+var video = document.querySelector('video');
+
+function readFile(sb) {
+	var reader = new FileReader();
+	reader.onload = function(e) {
+		sb.appendBuffer(new Uint8Array(e.target.result));
+		console.log("filled buffer with more data");
+	};
+
+	var blob = file.slice(cur_start, cur_end);
+	cur_start += chunkSize;
+	cur_end += chunkSize;
+
+	// asynchronously append to sourcebuffer
+	reader.readAsArrayBuffer(blob);
+
+	// signal caller that the entire file has been read
+	if(cur_end >= file.size) {
+		console.log("EOF");
+		return true;
+	}
+	return false;
+}
+
+$("#fileSelector").change(function(e) {
+	cur_start = 0;
+	cur_end = chunkSize;
+
+	file = e.target.files[0];
+	videoHandler(video, readFile, bufferSize);
+});
+
+/* videoHandler
+ *
+ * Given a video element, callback function which fills a given arraybuffer,
+ * and how many seconds we should buffer, this function will attach a
+ * media source to the video element, fill the source buffer with data
+ * by calling bufCallback until we have bufSeconds of buffer ahead of our
+ * playing position.
+ */
+
+var videoHandler = function(videoElement, bufCallback, bufSeconds) {
+	var fillBufferTimeout;
+	var gotWholeFile = false;
+	var ms = new MediaSource();
+	videoElement.src = window.URL.createObjectURL(ms);
+
+	// NOTE: if you get this too early then your .webm video probably does not
+	// contain keyframes where chrome expects them, use this program for a fix:
+	// https://github.com/acolwell/mse-tools
+	ms.addEventListener('sourceclose', function(e) {
+		console.log("MEDIA SOURCE CLOSED: " + e);
+		clearInterval(fillBufferTimeout);
+	});
+
+	ms.addEventListener('sourceopen', function() {
+		var sb = ms.addSourceBuffer('video/webm; codecs="vorbis,vp8"');
+		gotWholeFile = bufCallback(sb); // get first chunk
+
+		// call fillBuffer as soon as the sourceBuffer is ready to receive more data
+		// TODO: latency issues with this model?
+		sb.addEventListener('updateend', function() {
+			fillBuffer(sb);
+		});
+	}, false);
+
+	var fillBuffer = function(sb) {
+		// already buffered the whole video
+		if(gotWholeFile || videoElement.buffered.end(0) >= videoElement.duration)
+			return;
+
+		// if the buffer is not full, get more data.
+		// if it is, defer call to fillBuffer
+		if(videoElement.buffered.end(0) - videoElement.currentTime < bufferSize) {
+			gotWholeFile = bufCallback(sb);
+
+			if(video.paused)
+				video.play();
+		} else {
+			fillBufferTimeout = setTimeout(function() {
+				fillBuffer(sb);
+			}, 100);
+		}
+
+		// debug print
+		if(videoElement.buffered.length)
+			$("#stats").text("video played/buffered: " + Math.round(videoElement.currentTime) + 's/' + Math.round(videoElement.buffered.end(0)) + 's');
+	};
+}
+		</script>
+	</body>
+</html>
+
