@@ -1,37 +1,4 @@
-var file;
-var chunkSize = 1024 * 64;
-var chunkBufferSize = 10; // how many chunks are fetched concurrently
-var bufMaxSeconds = 10; // try to keep at least this many seconds buffered
-
-var video = document.querySelector('video');
-
-var readFile = function(currentChunk, storeCallback) {
-	var reader = new FileReader();
-	reader.onload = function(e) {
-		storeCallback(currentChunk, new Uint8Array(e.target.result));
-		//sb.appendBuffer(new Uint8Array(e.target.result));
-	};
-
-	var blob = file.slice(currentChunk * chunkSize, (currentChunk + 1) * chunkSize);
-
-	// asynchronously append to sourcebuffer
-	reader.readAsArrayBuffer(blob);
-
-	// signal caller that the entire file has been read
-	if((currentChunk + 1) * chunkSize >= file.size) {
-		console.log("EOF");
-		return true;
-	}
-	return false;
-}
-
-$("#fileSelector").change(function(e) {
-	file = e.target.files[0];
-	var cnt = Math.ceil(file.size / chunkSize);
-	videoHandler(video, readFile, cnt, chunkBufferSize, bufMaxSeconds);
-});
-
-/* videoHandler
+/* chunkedVideo()
  *
  * Given a video element, callback function which fills a given arraybuffer,
  * and how many seconds we should buffer, this function will attach a
@@ -40,15 +7,17 @@ $("#fileSelector").change(function(e) {
  * playing position.
  */
 
-var videoHandler = function(videoElement, bufCallback, chunkCount, chunkBufferSize, bufMaxSeconds) {
+var chunkedVideo = function(videoElement, bufCallback, chunkCount, chunkBufferSize, bufMinSeconds) {
 	// tempChunks contains any chunks not yet passed on to the sourceBuffer
 	// As soon as a chunk is appended to the sourceBuffer, it is deleted from
-	// tempChunks. Chunks are stored at their respective indices in tempChunks.
-	// pendingChunkCnt contains the count of pending chunk requests
+	// tempChunks. Chunks are stored as key/value pairs where the key is the index
+	// and value is the data.
+	//
+	// pendingChunk contains the indices of pending chunks as keys, and a
+	// boolean 'true' as its value.
 	var tempChunks = {}; var pendingChunks = {};
 
 	// sbChunk points to the chunk that we must append to the sourceBuffer next,
-	// this should be the first chunk in tempChunks
 	var sbChunk = 0;
 
 	var ms = new MediaSource();
@@ -64,7 +33,16 @@ var videoHandler = function(videoElement, bufCallback, chunkCount, chunkBufferSi
 	ms.addEventListener('sourceclose', function(e) {
 		console.log("MEDIA SOURCE CLOSED: " + e);
 		clearTimeout(getChunkTimeout);
-		//ms = undefined;
+	});
+
+	videoElement.addEventListener('seeking', function(e) {
+		console.log('seek to: ' + videoElement.currentTime);
+		/*
+		clearTimeout(getChunkTimeout);
+		//tempChunks = {}; pendingChunks = {};
+		sbChunk = 0; // TODO: find the chunk closest to seeked position from webm clusters
+		getNextChunk();
+		*/
 	});
 
 	ms.addEventListener('sourceopen', function() {
@@ -83,8 +61,8 @@ var videoHandler = function(videoElement, bufCallback, chunkCount, chunkBufferSi
 	var getNextChunk = function() {
 		// if the chunk buffer is not full, fetch more chunks.
 		if(Object.keys(pendingChunks).length < chunkBufferSize) {
-			if(videoElement.buffered.length && (videoElement.currentTime + bufMaxSeconds <= videoElement.buffered.end(0))) {
-				// we already have up to bufMaxSeconds of video ahead of the playback head,
+			if(videoElement.buffered.length && (videoElement.currentTime + bufMinSeconds <= videoElement.buffered.end(0))) {
+				// we already have up to bufMinSeconds of video ahead of the playback head,
 				// wait 1000ms and try again
 				clearTimeout(getChunkTimeout);
 				getChunkTimeout = setTimeout(function() {
@@ -112,10 +90,10 @@ var videoHandler = function(videoElement, bufCallback, chunkCount, chunkBufferSi
 					}
 				}
 
-				bufCallback(currentChunk, storeCallback);
+				bufCallback(currentChunk, storeCallback, failCallback);
 			}
 		} else {
-			console.log("huh??? getChunk() called even though chunkBuffer is full!");
+			console.log("WARNING: getChunk() called even though chunkBuffer is full! (this shouldn't happen...)");
 		}
 	};
 
@@ -151,7 +129,7 @@ var videoHandler = function(videoElement, bufCallback, chunkCount, chunkBufferSi
 		}
 	};
 
-	// called whenever a new chunk has been fetched to store the new chunk
+	// called whenever a new chunk has been successfully fetched to store it
 	var storeCallback = function(currentChunk, buf) {
 		// store the chunk
 		tempChunks[currentChunk] = buf;
@@ -166,7 +144,12 @@ var videoHandler = function(videoElement, bufCallback, chunkCount, chunkBufferSi
 		getNextChunk();
 	};
 
-	// TODO handle failures
+	// called whenever a chunk fetch failed
 	var failCallback = function(currentChunk) {
+		// no longer a pending chunk
+		delete(pendingChunks[currentChunk]);
+
+		// start fetching another chunk (possibly this failed one)
+		getNextChunk();
 	};
 };
