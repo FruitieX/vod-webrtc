@@ -7,3 +7,5 @@ generate chunk list from a webm file:
 -------------------------------------
 $ git clone https://github.com/jspiros/python-ebml.git
 $ PYTHONPATH=python-ebml python2 webmSegment.py video.webm > video.webm.json
+
+TODO: add segment support to chunkedVideo.js

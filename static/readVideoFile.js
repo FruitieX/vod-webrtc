@@ -1,4 +1,4 @@
-var file;
+var byteSize = 623568;
 var chunkSize = 1024 * 64;
 var chunkBufferSize = 10; // how many chunks are fetched concurrently
 var bufMaxSeconds = 10; // try to keep at least this many seconds buffered
@@ -6,31 +6,27 @@ var bufMaxSeconds = 10; // try to keep at least this many seconds buffered
 var video = document.querySelector('video');
 
 var readFile = function(currentChunk, storeCallback, failCallback) {
-	var reader = new FileReader();
-	reader.onload = function(e) {
-		storeCallback(currentChunk, new Uint8Array(e.target.result));
-		//sb.appendBuffer(new Uint8Array(e.target.result));
+	var url = 'http://fruitiex.org/files/misc/output.webm';
+	var xhr = new XMLHttpRequest();
+	xhr.open('GET', url, true);
+	xhr.responseType = 'arraybuffer';
+	xhr.setRequestHeader('Range', 'bytes=' +
+			(currentChunk * chunkSize) + '-' + ((currentChunk + 1) * chunkSize));
+	xhr.send();
+	console.log('xhr.send()');
+
+	xhr.onload = function(e) {
+		if (xhr.status != 200) {
+			alert("Unexpected status code " + xhr.status + " for " + url);
+			failCallback(currentChunk);
+		} else {
+			storeCallback(currentChunk, new Uint8Array(xhr.response));
+		}
 	};
-	reader.onerror = function(e) {
-		failCallback(currentChunk);
-	};
-
-	var blob = file.slice(currentChunk * chunkSize, (currentChunk + 1) * chunkSize);
-
-	// asynchronously append to sourcebuffer
-	reader.readAsArrayBuffer(blob);
-
-	// signal caller that the entire file has been read
-	if((currentChunk + 1) * chunkSize >= file.size) {
-		console.log("EOF");
-		return true;
-	}
-	return false;
 }
 
-$("#fileSelector").change(function(e) {
-	file = e.target.files[0];
-	var cnt = Math.ceil(file.size / chunkSize);
+$("#startButton").click(function(e) {
+	var cnt = Math.ceil(byteSize / chunkSize);
 	chunkedVideo(video, readFile, cnt, chunkBufferSize, bufMaxSeconds);
 });
 
