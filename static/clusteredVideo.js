@@ -1,10 +1,17 @@
 /* clusteredVideo()
  *
- * Given a video element, callback function which fills a given arraybuffer,
- * and how many seconds we should buffer, this function will attach a
- * media source to the video element, fill the source buffer with data
- * by calling bufCallback until we have bufSeconds of buffer ahead of our
- * playing position.
+ * This function will attach a media source to the given video element, fill
+ * the source buffer with data by calling bufCallback until we have
+ * bufMinSeconds of buffer ahead of our playback position.
+ *
+ * Parameters:
+ * - bufCallback(currentCluster, storeCallback, failCallback): called whenever
+ *   we need more buffer
+ * - videoElement: html5 video element we attach to
+ * - videoMetadata: JSON containing information about the clusters in the video
+ * - clusterConcurrency: how many cluster fetches can we perform concurrently
+ * - bufMinSeconds: attempt to keep at least this many seconds of video in the
+ *   buffer
  */
 
 var clusteredVideo = function(bufCallback, videoElement, videoMetadata, clusterConcurrency, bufMinSeconds) {
@@ -17,8 +24,9 @@ var clusteredVideo = function(bufCallback, videoElement, videoMetadata, clusterC
 	// boolean 'true' as its value.
 	var tempClusters = {}; var pendingClusters = {};
 
-	// sbCluster points to the cluster that we must append to the sourceBuffer next,
-	// sbCluster starts from -1 which corresponds to all data before the first cluster
+	// sbCluster points to the first missing cluster ahead of the playback
+	// position.  sbCluster starts from -1 which corresponds to all data before
+	// the first WebM cluster.
 	var sbCluster = -1;
 
 	var ms = new MediaSource();
@@ -28,30 +36,28 @@ var clusteredVideo = function(bufCallback, videoElement, videoMetadata, clusterC
 
 	videoElement.src = window.URL.createObjectURL(ms);
 
-	// NOTE: if you get this too early then your .webm video probably does not
-	// contain keyframes where chrome expects them, use this program for a fix:
-	// https://github.com/acolwell/mse-tools
+	// NOTE: chrome is extremely picky about the video files being in a certain
+	// format, if you get this too early then your .webm video probably does not
+	// contain keyframes where chrome expects them, see README for a fix
 	ms.addEventListener('sourceclose', function(e) {
-		console.log("MEDIA SOURCE CLOSED: " + e);
+		console.info("MEDIA SOURCE CLOSED");
 		clearTimeout(getClusterTimeout);
 	});
 
 	var findClusterForTime = function(timecode) {
-		console.log('finding cluster for time ' + timecode);
+
 		for (var i = videoMetadata['clusters'].length - 1; i >= 0; i--) {
 			if(timecode >= videoMetadata['clusters'][i].timecode) {
-				console.log('returned ' + i );
+				console.log('found cluster ' + i + ' for time ' + timecode);
 				return i;
 			}
 		}
 
-		// this shouldn't happen...
-		console.log('wat');
+		console.warn('WARNING: seeked to unknown position in video');
 		return 0;
 	};
 
 	videoElement.addEventListener('seeking', function(e) {
-		console.log('seek to: ' + videoElement.currentTime);
 		clearTimeout(getClusterTimeout);
 
 		// find the cluster closest to seeked position from webm clusters
@@ -94,7 +100,7 @@ var clusteredVideo = function(bufCallback, videoElement, videoMetadata, clusterC
 	};
 
 	var getNextCluster = function() {
-		// if the cluster buffer is not full, fetch more clusters.
+		// if we don't have too many concurrent requests yet, fetch more clusters
 		if(Object.keys(pendingClusters).length < clusterConcurrency) {
 			if(haveEnoughBuffer()) {
 				// we already have up to bufMinSeconds of video ahead of the playback head,
@@ -127,17 +133,9 @@ var clusteredVideo = function(bufCallback, videoElement, videoMetadata, clusterC
 				bufCallback(currentCluster, storeCallback, failCallback);
 			}
 		} else {
-			console.log("WARNING: getCluster() called even though clusterBuffer is full! (this shouldn't happen...)");
+			console.warn('WARNING: getNextCluster() called even though we have too many concurrent requests!');
 		}
 	};
-
-	/*
-	setInterval(function() {
-		// debug print
-		if(videoElement.buffered.length)
-			$("#stats").text("video played/buffered: " + Math.round(videoElement.currentTime) + 's/' + Math.round(videoElement.buffered.end(0)) + 's');
-	}, 1000);
-	*/
 
 	/* Cluster handling */
 
@@ -146,7 +144,7 @@ var clusteredVideo = function(bufCallback, videoElement, videoMetadata, clusterC
 	// when the sb has finished appending to its buffer. This means that this
 	// function will 'loop' asynchronously whenever the sb is ready,
 	// incrementing sbCluster each iteration, until we find the first cluster that
-	// has not been fetched yet
+	// has not been fetched yet (not in tempClusters)
 	var appendClusters = function() {
 		if(!(sbCluster in tempClusters))
 			return; // we are missing a cluster and can't continue

@@ -5,6 +5,23 @@ var url_clusters = 'http://localhost/output.webm.json';
 var videoElement = document.querySelector('video');
 
 $.ajax(url_clusters).done(function(data) {
+	// DEBUG print
+	setInterval(function() {
+		if(!videoElement.buffered.length)
+			return false;
+
+		// find which buffer segment we are in
+		var ct = videoElement.currentTime;
+		for(var i = 0; i < videoElement.buffered.length; i++) {
+			var start = videoElement.buffered.start(i);
+			var end = videoElement.buffered.end(i);
+
+			if(start <= ct && ct <= end) {
+				$("#stats").text("video played/buffered: " + Math.round(ct) + 's/' + Math.round(end) + 's');
+			}
+		}
+	}, 1000);
+
 	var videoMetadata = JSON.parse(data);
 	var getClusterEnd = function(currentCluster) {
 		if(currentCluster < videoMetadata['clusters'].length - 1) {
@@ -15,7 +32,6 @@ $.ajax(url_clusters).done(function(data) {
 	};
 
 	var xhrRequest = function(currentCluster, storeCallback, failCallback) {
-		console.log('xhr currentCluster: ' + currentCluster);
 		var xhr = new XMLHttpRequest();
 		xhr.open('GET', url, true);
 		xhr.responseType = 'arraybuffer';
