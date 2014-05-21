@@ -72,17 +72,37 @@ var clusteredVideo = function(bufCallback, videoElement, videoMetadata, clusterC
 		});
 	}, false);
 
+	var haveEnoughBuffer = function() {
+		// no buffer at all
+		if(!videoElement.buffered.length)
+			return false;
+
+		// video element may have buffered several separate segments, find which
+		// one of them the playhead is in currently
+		var ct = videoElement.currentTime;
+		for(var i = 0; i < videoElement.buffered.length; i++) {
+			var start = videoElement.buffered.start(i);
+			var end = videoElement.buffered.end(i);
+
+			if(start <= ct && ct <= end) {
+				if(ct + bufMinSeconds <= end)
+					return true;
+				else
+					return false;
+			}
+		}
+	};
+
 	var getNextCluster = function() {
 		// if the cluster buffer is not full, fetch more clusters.
 		if(Object.keys(pendingClusters).length < clusterConcurrency) {
-			if(videoElement.buffered.length && (videoElement.currentTime + bufMinSeconds <= videoElement.buffered.end(0))) {
+			if(haveEnoughBuffer()) {
 				// we already have up to bufMinSeconds of video ahead of the playback head,
 				// wait 1000ms and try again
 				clearTimeout(getClusterTimeout);
 				getClusterTimeout = setTimeout(function() {
 					var tempPendingCnt = Object.keys(pendingClusters).length;
 					for(var i = 0; i < clusterConcurrency - tempPendingCnt; i++) {
-						//console.log('deferred getNextCluster()');
 						getNextCluster();
 					}
 				}, 1000);
@@ -111,11 +131,13 @@ var clusteredVideo = function(bufCallback, videoElement, videoMetadata, clusterC
 		}
 	};
 
+	/*
 	setInterval(function() {
 		// debug print
 		if(videoElement.buffered.length)
 			$("#stats").text("video played/buffered: " + Math.round(videoElement.currentTime) + 's/' + Math.round(videoElement.buffered.end(0)) + 's');
 	}, 1000);
+	*/
 
 	/* Cluster handling */
 
