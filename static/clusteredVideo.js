@@ -45,6 +45,7 @@ var clusteredVideo = function(bufCallback, videoElement, videoMetadata, clusterC
 		tempClusters = {};
 		clearTimeout(getClusterTimeout);
 		videoElement.removeEventListener('seeking', onseeking);
+		ms = undefined; sb = undefined;
 	};
 	ms.addEventListener('sourceclose', onsourceclose);
 
@@ -157,7 +158,7 @@ var clusteredVideo = function(bufCallback, videoElement, videoMetadata, clusterC
 
 		// if the sb is already processing buffers we don't need to do anything here;
 		// appendClusters(); will be called asynchronously when the sb has finished
-		if(!sb.updating) {
+		if(sb && !sb.updating) {
 			sb.appendBuffer(tempClusters[sbCluster]);
 
 			delete(tempClusters[sbCluster]);
