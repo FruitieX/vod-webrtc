@@ -39,13 +39,16 @@ var clusteredVideo = function(bufCallback, videoElement, videoMetadata, clusterC
 	// NOTE: chrome is extremely picky about the video files being in a certain
 	// format, if you get this too early then your .webm video probably does not
 	// contain keyframes where chrome expects them, see README for a fix
-	ms.addEventListener('sourceclose', function(e) {
+
+	var onsourceclose = function() {
 		console.info("MEDIA SOURCE CLOSED");
+		tempClusters = {};
 		clearTimeout(getClusterTimeout);
-	});
+		videoElement.removeEventListener('seeking', onseeking);
+	};
+	ms.addEventListener('sourceclose', onsourceclose);
 
 	var findClusterForTime = function(timecode) {
-
 		for (var i = videoMetadata['clusters'].length - 1; i >= 0; i--) {
 			if(timecode >= videoMetadata['clusters'][i].timecode) {
 				console.log('found cluster ' + i + ' for time ' + timecode);
@@ -57,15 +60,17 @@ var clusteredVideo = function(bufCallback, videoElement, videoMetadata, clusterC
 		return 0;
 	};
 
-	videoElement.addEventListener('seeking', function(e) {
+	var onseeking = function() {
 		clearTimeout(getClusterTimeout);
+		tempClusters = {};
 
 		// find the cluster closest to seeked position from webm clusters
 		sbCluster = findClusterForTime(videoElement.currentTime * 1000);
 		getNextCluster();
-	});
+	};
+	videoElement.addEventListener('seeking', onseeking);
 
-	ms.addEventListener('sourceopen', function() {
+	var onsourceopen = function() {
 		sb = ms.addSourceBuffer('video/webm; codecs="vorbis,vp8"');
 
 		// get first clusters
@@ -76,7 +81,8 @@ var clusteredVideo = function(bufCallback, videoElement, videoMetadata, clusterC
 		sb.addEventListener('updateend', function() {
 			appendClusters();
 		});
-	}, false);
+	};
+	ms.addEventListener('sourceopen', onsourceopen);
 
 	var haveEnoughBuffer = function() {
 		// no buffer at all
