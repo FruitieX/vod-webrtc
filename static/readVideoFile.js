@@ -15,6 +15,7 @@ $.ajax(url_clusters).done(function(data) {
 	};
 
 	var xhrRequest = function(currentCluster, storeCallback, failCallback) {
+		console.log('xhr currentCluster: ' + currentCluster);
 		var xhr = new XMLHttpRequest();
 		xhr.open('GET', url, true);
 		xhr.responseType = 'arraybuffer';

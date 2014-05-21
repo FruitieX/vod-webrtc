@@ -36,14 +36,27 @@ var clusteredVideo = function(bufCallback, videoElement, videoMetadata, clusterC
 		clearTimeout(getClusterTimeout);
 	});
 
+	var findClusterForTime = function(timecode) {
+		console.log('finding cluster for time ' + timecode);
+		for (var i = videoMetadata['clusters'].length - 1; i >= 0; i--) {
+			if(timecode >= videoMetadata['clusters'][i].timecode) {
+				console.log('returned ' + i );
+				return i;
+			}
+		}
+
+		// this shouldn't happen...
+		console.log('wat');
+		return 0;
+	};
+
 	videoElement.addEventListener('seeking', function(e) {
 		console.log('seek to: ' + videoElement.currentTime);
-		/*
 		clearTimeout(getClusterTimeout);
-		//tempClusters = {}; pendingClusters = {};
-		sbCluster = 0; // TODO: find the cluster closest to seeked position from webm clusters
+
+		// find the cluster closest to seeked position from webm clusters
+		sbCluster = findClusterForTime(videoElement.currentTime * 1000);
 		getNextCluster();
-		*/
 	});
 
 	ms.addEventListener('sourceopen', function() {
