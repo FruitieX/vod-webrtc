@@ -4,7 +4,7 @@ var url = 'http://localhost/output.webm';
 var url_clusters = 'http://localhost/output.webm.json';
 var videoElement = document.querySelector('video');
 
-$.ajax(url_clusters).done(function(data) {
+$.getJSON(url_clusters, function(videoMetadata) {
 	// DEBUG print
 	setInterval(function() {
 		if(!videoElement.buffered.length)
@@ -22,7 +22,6 @@ $.ajax(url_clusters).done(function(data) {
 		}
 	}, 1000);
 
-	var videoMetadata = JSON.parse(data);
 	var getClusterEnd = function(currentCluster) {
 		if(currentCluster < videoMetadata['clusters'].length - 1) {
 			return videoMetadata['clusters'][currentCluster + 1].offset - 1;
