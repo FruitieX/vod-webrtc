@@ -34,6 +34,7 @@ $.getJSON(url_clusters, function(videoMetadata) {
 		var xhr = new XMLHttpRequest();
 		xhr.open('GET', url, true);
 		xhr.responseType = 'arraybuffer';
+		xhr.timeout = 10 * 1000;
 
 		// cluster -1 contains all data before the first webm cluster
 		if(currentCluster === -1) {
@@ -44,19 +45,15 @@ $.getJSON(url_clusters, function(videoMetadata) {
 					getClusterEnd(currentCluster));
 		}
 
-		/*
-		console.log('getting range: ' +
-			videoMetadata['clusters'][currentCluster].offset + '-' +
-			getClusterEnd(currentCluster));
-			*/
 		xhr.send();
 
-		xhr.onload = function(e) {
-			if (xhr.status != 206 && xhr.status != 200) {
-				alert("Unexpected status code " + xhr.status + " for " + url);
-				failCallback(currentCluster);
-			} else {
-				storeCallback(currentCluster, new Uint8Array(xhr.response));
+		xhr.onreadystatechange = function() {
+			if(xhr.readyState == 4) { // readyState DONE
+				if (xhr.status == 206) // 206 (partial content)
+					storeCallback(currentCluster, new Uint8Array(xhr.response));
+				else {
+					failCallback(currentCluster);
+				}
 			}
 		};
 	}
@@ -67,4 +64,3 @@ $.getJSON(url_clusters, function(videoMetadata) {
 		clusteredVideo(xhrRequest, videoElement, videoMetadata, clusterConcurrency, bufMinSeconds);
 	});
 });
-

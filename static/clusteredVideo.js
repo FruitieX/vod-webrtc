@@ -190,7 +190,8 @@ var clusteredVideo = function(bufCallback, videoElement, videoMetadata, clusterC
 		// no longer a pending cluster
 		delete(pendingClusters[currentCluster]);
 
-		// start fetching another cluster (possibly this failed one)
-		getNextCluster();
+		// start fetching another cluster (possibly this failed one) but wait a
+		// little while in case there is connection issue so we don't flood requests
+		setTimeout(getNextCluster, 1000);
 	};
 };
