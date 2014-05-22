@@ -1,7 +1,7 @@
 var clusterConcurrency = 10; // how many clusters are fetched concurrently
 var bufMinSeconds = 10; // try to keep at least this many seconds buffered
-var url = 'http://localhost/output.webm';
-var url_clusters = 'http://localhost/output.webm.json';
+var url = '/output.webm';
+var url_clusters = '/output.webm.json';
 var videoElement = document.querySelector('video');
 
 $.getJSON(url_clusters, function(videoMetadata) {
