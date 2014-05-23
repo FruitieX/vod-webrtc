@@ -1,8 +1,10 @@
-var clusterConcurrency = 10; // how many clusters are fetched concurrently
-var bufMinSeconds = 10; // try to keep at least this many seconds buffered
+var clusterConcurrency = 5; // how many clusters are fetched concurrently
+var bufMinSeconds = 30; // try to keep at least this many seconds buffered
 var url = '/output.webm';
 var url_clusters = '/output.webm.json';
 var videoElement = document.querySelector('video');
+var isWebRTCCapable = true;
+var storedClusters = [];
 
 $.getJSON(url_clusters, function(videoMetadata) {
 	// DEBUG print
@@ -56,11 +58,21 @@ $.getJSON(url_clusters, function(videoMetadata) {
 				}
 			}
 		};
-	}
+	};
+
+	var fetchCluster = function(currentCluster, clusterPriority, storeCallback, failCallback) {
+		console.log('prio: ' + clusterPriority);
+		if(clusterPriority <= 1) { // one cluster ahead of playback, we need it ASAP!
+			xhrRequest(currentCluster, storeCallback, failCallback);
+		} else { // use WebRTC datachannels
+			// just fail it for now
+			failCallback(currentCluster);
+		}
+	};
 
 	// enable the start button
 	$("#startButton").removeAttr("disabled");
 	$("#startButton").click(function(e) {
-		clusteredVideo(xhrRequest, videoElement, videoMetadata, clusterConcurrency, bufMinSeconds);
+		clusteredVideo(fetchCluster, videoElement, videoMetadata, clusterConcurrency, bufMinSeconds);
 	});
 });

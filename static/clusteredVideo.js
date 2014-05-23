@@ -29,7 +29,7 @@ var clusteredVideo = function(bufCallback, videoElement, videoMetadata, clusterC
 	// the first WebM cluster.
 	var sbCluster = -1;
 
-	var ms = new MediaSource();
+	var ms = new MediaSource(); var msClosed = false;
 	var sb;
 
 	var getClusterTimeout;
@@ -45,19 +45,17 @@ var clusteredVideo = function(bufCallback, videoElement, videoMetadata, clusterC
 		tempClusters = {};
 		clearTimeout(getClusterTimeout);
 		videoElement.removeEventListener('seeking', onseeking);
-		ms = undefined; sb = undefined;
+		msClosed = true;
 	};
 	ms.addEventListener('sourceclose', onsourceclose);
 
 	var findClusterForTime = function(timecode) {
 		for (var i = videoMetadata['clusters'].length - 1; i >= 0; i--) {
 			if(timecode >= videoMetadata['clusters'][i].timecode) {
-				console.log('found cluster ' + i + ' for time ' + timecode);
 				return i;
 			}
 		}
 
-		console.warn('WARNING: seeked to unknown position in video');
 		return 0;
 	};
 
@@ -137,7 +135,8 @@ var clusteredVideo = function(bufCallback, videoElement, videoMetadata, clusterC
 					}
 				}
 
-				bufCallback(currentCluster, storeCallback, failCallback);
+				var playbackCluster = findClusterForTime(videoElement.currentTime * 1000);
+				bufCallback(currentCluster, currentCluster - playbackCluster, storeCallback, failCallback);
 			}
 		} else {
 			console.warn('WARNING: getNextCluster() called even though we have too many concurrent requests!');
@@ -172,6 +171,9 @@ var clusteredVideo = function(bufCallback, videoElement, videoMetadata, clusterC
 
 	// called whenever a new cluster has been successfully fetched to store it
 	var storeCallback = function(currentCluster, buf) {
+		if(msClosed)
+			return;
+
 		// store the cluster
 		tempClusters[currentCluster] = buf;
 
@@ -187,6 +189,9 @@ var clusteredVideo = function(bufCallback, videoElement, videoMetadata, clusterC
 
 	// called whenever a cluster fetch failed
 	var failCallback = function(currentCluster) {
+		if(msClosed)
+			return;
+
 		// no longer a pending cluster
 		delete(pendingClusters[currentCluster]);
 
