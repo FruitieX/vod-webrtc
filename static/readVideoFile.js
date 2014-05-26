@@ -72,7 +72,17 @@ var rtcVideoPlayer = function(videoElement, videoPath, peerjsHost, peerjsPort) {
 
 		// connects to peers
 		var rtcConnectionManager = function() {
-			var peer = new Peer(undefined, {host: peerjsHost, port: peerjsPort, path: videoPath});
+			var peer = new Peer(undefined, {
+				host: peerjsHost,
+				port: peerjsPort,
+				path: videoPath,
+				config: {
+					'iceServers': [
+						{ url: 'stun:stun.l.google.com:19302' },
+						{ url: 'turn:fruitiex.org:3478', username: "rasse", credential: 'foobar' }
+					]
+				}
+			});
 			peer.listAllPeers(function(peers) {
 				for(var i = 0; i < peers.length && i < dataConnectionCnt; i++) {
 					var dataConnection = peer.connect(peers[i]);
@@ -83,6 +93,7 @@ var rtcVideoPlayer = function(videoElement, videoPath, peerjsHost, peerjsPort) {
 			peer.on('connection', function(dataConnection) {
 				dataConnection.on('data', function(data) {
 					if(data.method == 'getCluster') {
+						console.info('sending cluster ' + data.cluster);
 						dataConnection.send(clusters[data.cluster]);
 					} else {
 						// unknown method
