@@ -90,6 +90,8 @@ var rtcVideoPlayer = function(videoElement, videoPath, peerjsHost, peerjsPort) {
 			peer.on('open', function() {
 				$("#peerid").text("Peer ID: " + peer.id);
 				peer.listAllPeers(function(peers) {
+					console.log('got peers:');
+					console.log(peers);
 					for(var i = 0; i < peers.length && i < dataConnectionCnt; i++) {
 						// skip ourselves
 						if(peers[i] === peer.id)
