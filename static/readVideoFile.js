@@ -194,4 +194,4 @@ var rtcVideoPlayer = function(videoElement, videoPath, peerjsHost, peerjsPort) {
 };
 
 // video element and prefix of video (.webm) and video metadata (.webm.json)
-rtcVideoPlayer(document.querySelector('video'), '/output', 'localhost', 9000);
+rtcVideoPlayer(document.querySelector('video'), '/output', 'fruitiex.org', 9000);
