@@ -1,17 +1,16 @@
-#!/usr/bin/env node
+var PeerServer = require('peer').PeerServer;
 
-var HTTP_PORT = 8000;
-var PEER_PORT = 8001;
-var IO_PORT = 8002;
+var createServer = function(videoPath, svPort) {
+	var server = new PeerServer({port: svPort, path: videoPath, allow_discovery: true});
 
-// signaling server
-var fs = require('fs');
-// static HTTP server
-var static = require('node-static');
-var file = new static.Server('./static');
+	server.on('connection', function(id) {
+		console.log('id ' + id + ' connected.');
+	});
 
-require('http').createServer(function(req, res) {
-	req.addListener('end', function () {
-		file.serve(req, res);
-	}).resume();
-}).listen(HTTP_PORT);
+	server.on('disconnect', function(id) {
+		console.log('id ' + id + ' disconnected.');
+	});
+};
+
+// TODO: what about multiple servers serving separate paths, but on the same port?
+createServer('/output', 9000);

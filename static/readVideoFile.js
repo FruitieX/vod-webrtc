@@ -1,15 +1,13 @@
-var rtcVideoPlayer = function(videoElement, videoMetadataUrl) {
-	$.getJSON(videoMetadataUrl, function(videoMetadata) {
+var rtcVideoPlayer = function(videoElement, videoPath, peerjsHost, peerjsPort) {
+	$.getJSON(videoPath + '.json', function(videoMetadata) {
 		// constants
-		var clusterConcurrency = 5; // how many clusters are fetched concurrently
+		var clusterConcurrency = 3; // how many clusters are fetched concurrently
 		var bufMinSeconds = 30; // try to keep at least this many seconds buffered
+		var dataConnectionCnt = 10; // try to connect to this many rtc peers
 
 		var init = function() {
 			for (var i = 0; i < videoMetadata['clusters'].length; i++) {
-				clusters[i] = {
-					'data': false,
-					'havePeers': []
-				};
+				clusters[i] = false;
 			}
 
 			if (isWebRTCCapable)
@@ -53,35 +51,103 @@ var rtcVideoPlayer = function(videoElement, videoMetadataUrl) {
 			}
 		};
 
+		// function for intercepting call to storeCallback, stores the cluster
+		// in a local array where we can find it upon rtc peers requesting it
+		var rtcStoreClusterCallback = function(currentCluster, data, storeCallback) {
+			if(isWebRTCCapable)
+				clusters[currentCluster] = data;
+			storeCallback(currentCluster, data);
+		};
+
 		/* Networking */
 
 		var fetchCluster = function(currentCluster, clusterPriority, storeCallback, failCallback) {
-			console.log('cluster ' + currentCluster + ' prio: ' + clusterPriority);
+			//console.log('cluster ' + currentCluster + ' prio: ' + clusterPriority);
 			if(!isWebRTCCapable || clusterPriority <= 1) { // one cluster ahead of playback, we need it ASAP!
-				console.log('using XHR');
 				xhrRequest(currentCluster, storeCallback, failCallback);
 			} else { // use WebRTC datachannels
-				console.log('using WebRTC');
 				rtcRequest(currentCluster, storeCallback, failCallback);
 			}
 		};
 
 		// WebRTC
-		var isWebRTCCapable = true;
-		var rtcPeers = [];
+		var isWebRTCCapable = util.supports.data;
+		var dataConnections = [];
 
-		// connects to peers, handles chunk lists
+		// connects to peers
 		var rtcConnectionManager = function() {
+			var peer = new Peer(undefined, {host: peerjsHost, port: peerjsPort, path: videoPath});
+			peer.listAllPeers(function(peers) {
+				for(var i = 0; i < peers.length && i < dataConnectionCnt; i++) {
+					var dataConnection = peer.connect(peers[i]);
+					// TODO: error handling
+					dataConnections.push(dataConnection);
+				}
+			});
+			peer.on('connection', function(dataConnection) {
+				dataConnection.on('data', function(data) {
+					if(data.method == 'getCluster') {
+						dataConnection.send(clusters[data.cluster]);
+					} else {
+						// unknown method
+						dataConnection.close();
+					}
+				});
+			});
 		};
 
+		// make request to next peer
 		var rtcRequest = function(currentCluster, storeCallback, failCallback) {
-			failCallback(currentCluster);
+			if(!dataConnections.length) {
+				failCallback(currentCluster);
+			} else {
+				console.info('using WebRTC for cluster ' + currentCluster);
+
+				// remove this dataConnection while pending
+				var dataConnection = dataConnections.shift();
+
+				var rtcRequestTimeout = setTimeout(function() {
+					// slow peer, disconnect
+					console.info('peer timeout!');
+					dataConnection.close();
+					failCallback(currentCluster);
+				}, 10 * 1000);
+				dataConnection.once('data', function(data) {
+					if(data) {
+						// good peer, push it back to dataConnections array
+						clearTimeout(rtcRequestTimeout);
+						if(dataConnections.indexOf(dataConnection) === -1)
+							dataConnections.push(dataConnection);
+						rtcStoreClusterCallback(currentCluster, data, storeCallback);
+					} else {
+						// didn't have wanted piece, probably won't have next pieces either;
+						// disconnect from peer and forget about it
+						clearTimeout(rtcRequestTimeout);
+						dataConnection.close();
+						failCallback(currentCluster);
+					}
+				});
+
+				dataConnection.once('close', function() {
+					console.info('peer closed!');
+					clearTimeout(rtcRequestTimeout);
+					dataConnection.close();
+					failCallback(currentCluster);
+				});
+
+				dataConnection.send({
+					method: 'getCluster',
+					cluster: currentCluster
+				});
+			}
 		};
 
 		// XHR
 		var xhrRequest = function(currentCluster, storeCallback, failCallback) {
+			console.log('using XHR for cluster ' + currentCluster);
+
 			var xhr = new XMLHttpRequest();
-			xhr.open('GET', videoMetadata.filename, true);
+			xhr.open('GET', videoPath + '.webm', true);
 			xhr.responseType = 'arraybuffer';
 			xhr.timeout = 10 * 1000;
 
@@ -99,7 +165,7 @@ var rtcVideoPlayer = function(videoElement, videoMetadataUrl) {
 			xhr.onreadystatechange = function() {
 				if(xhr.readyState == 4) { // readyState DONE
 					if (xhr.status == 206) // 206 (partial content)
-						storeCallback(currentCluster, new Uint8Array(xhr.response));
+						rtcStoreClusterCallback(currentCluster, new Uint8Array(xhr.response), storeCallback);
 					else {
 						failCallback(currentCluster);
 					}
@@ -111,4 +177,5 @@ var rtcVideoPlayer = function(videoElement, videoMetadataUrl) {
 	});
 };
 
-rtcVideoPlayer(document.querySelector('video'), '/output.webm.json');
+// video element and prefix of video (.webm) and video metadata (.webm.json)
+rtcVideoPlayer(document.querySelector('video'), '/output', 'localhost', 9000);

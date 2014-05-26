@@ -4,8 +4,6 @@
 	"description" : "werbtc testing",
 	"main" : "server.js",
 	"dependencies" : {
-		"socket.io" : ">=0.9.16",
-		"node-static" : ">=0.7.3",
 		"peer" : ">=0.2.5"
 	}
 }
