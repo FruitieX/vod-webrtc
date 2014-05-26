@@ -19,19 +19,11 @@ var rtcVideoPlayer = function(videoElement, videoPath, peerjsHost, peerjsPort) {
 
 		// DEBUG print
 		setInterval(function() {
-			if(!videoElement.buffered.length)
-				return false;
-
-			// find which buffer segment we are in
-			var ct = videoElement.currentTime;
-			for(var i = 0; i < videoElement.buffered.length; i++) {
-				var start = videoElement.buffered.start(i);
-				var end = videoElement.buffered.end(i);
-
-				if(start <= ct && ct <= end) {
-					$("#stats").text("video played/buffered: " + Math.round(ct) + 's/' + Math.round(end) + 's');
-				}
-			}
+			var c = $("#xhrDL");
+			var ctx = c.getContext("2d");
+			ctx.moveTo(0,0);
+			ctx.lineTo(200,100);
+			ctx.stroke();
 		}, 1000);
 
 		// enable the start button
