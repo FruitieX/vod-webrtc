@@ -2,6 +2,7 @@ var rtcVideoPlayer = function(videoElement, videoPath, peerjsHost, peerjsPort) {
 	$.getJSON(videoPath + '.json', function(videoMetadata) {
 		// constants
 		var clusterConcurrency = 3; // how many clusters are fetched concurrently
+		var clusterTimeout = 10; // how many seconds it takes to time out a request
 		var bufMinSeconds = 30; // try to keep at least this many seconds buffered
 		var dataConnectionCnt = 10; // try to connect to this many rtc peers
 
@@ -63,7 +64,9 @@ var rtcVideoPlayer = function(videoElement, videoPath, peerjsHost, peerjsPort) {
 
 		var fetchCluster = function(currentCluster, clusterPriority, storeCallback, failCallback) {
 			//console.log('cluster ' + currentCluster + ' prio: ' + clusterPriority);
-			if(!isWebRTCCapable || clusterPriority <= 1) { // one cluster ahead of playback, we need it ASAP!
+			if(clusters[currentCluster]) { // cluster already stored?
+				storeCallback(currentCluster, clusters[currentCluster]);
+			} else if(!isWebRTCCapable || clusterPriority <= 1) { // one cluster ahead of playback, we need it ASAP!
 				xhrRequest(currentCluster, storeCallback, failCallback);
 			} else { // use WebRTC datachannels
 				rtcRequest(currentCluster, storeCallback, failCallback);
@@ -73,6 +76,7 @@ var rtcVideoPlayer = function(videoElement, videoPath, peerjsHost, peerjsPort) {
 		// WebRTC
 		var isWebRTCCapable = util.supports.data;
 		var dataConnections = [];
+		var pendingDataConnections = [];
 
 		// connects to peers
 		var rtcConnectionManager = function() {
@@ -98,21 +102,31 @@ var rtcVideoPlayer = function(videoElement, videoPath, peerjsHost, peerjsPort) {
 
 		// make request to next peer
 		var rtcRequest = function(currentCluster, storeCallback, failCallback) {
-			if(!dataConnections.length) {
+			if(!dataConnections.length && !pendingDataConnections.length) {
+				xhrRequest(currentCluster, storeCallback, failCallback);
+			} else if (!dataConnections.length && pendingDataConnections.length) {
+				console.debug('waiting for current RTCRequest to finish');
+				console.debug('pendingRtcRequests = ' + pendingDataConnections.length);
 				failCallback(currentCluster);
 			} else {
 				console.info('using WebRTC for cluster ' + currentCluster);
 
 				// remove this dataConnection while pending
 				var dataConnection = dataConnections.shift();
+				pendingDataConnections.push(dataConnection);
+
+				dataConnection.removeAllListeners('data');
+				dataConnection.removeAllListeners('close');
 
 				var rtcRequestTimeout = setTimeout(function() {
 					// slow peer, disconnect
-					console.info('peer timeout!');
+					console.warn('peer timeout!');
 					dataConnection.close();
+					pendingDataConnections.splice(pendingDataConnections.indexOf(dataConnection), 1);
 					failCallback(currentCluster);
-				}, 10 * 1000);
+				}, clusterTimeout * 1000);
 				dataConnection.once('data', function(data) {
+					pendingDataConnections.splice(pendingDataConnections.indexOf(dataConnection), 1);
 					if(data) {
 						// good peer, push it back to dataConnections array
 						clearTimeout(rtcRequestTimeout);
@@ -122,6 +136,7 @@ var rtcVideoPlayer = function(videoElement, videoPath, peerjsHost, peerjsPort) {
 					} else {
 						// didn't have wanted piece, probably won't have next pieces either;
 						// disconnect from peer and forget about it
+						// TODO: this may be a little too harsh
 						clearTimeout(rtcRequestTimeout);
 						dataConnection.close();
 						failCallback(currentCluster);
@@ -129,9 +144,10 @@ var rtcVideoPlayer = function(videoElement, videoPath, peerjsHost, peerjsPort) {
 				});
 
 				dataConnection.once('close', function() {
-					console.info('peer closed!');
+					console.warn('peer closed!');
 					clearTimeout(rtcRequestTimeout);
 					dataConnection.close();
+					pendingDataConnections.splice(pendingDataConnections.indexOf(dataConnection), 1);
 					failCallback(currentCluster);
 				});
 
@@ -144,12 +160,12 @@ var rtcVideoPlayer = function(videoElement, videoPath, peerjsHost, peerjsPort) {
 
 		// XHR
 		var xhrRequest = function(currentCluster, storeCallback, failCallback) {
-			console.log('using XHR for cluster ' + currentCluster);
+			console.info('using XHR for cluster ' + currentCluster);
 
 			var xhr = new XMLHttpRequest();
 			xhr.open('GET', videoPath + '.webm', true);
 			xhr.responseType = 'arraybuffer';
-			xhr.timeout = 10 * 1000;
+			xhr.timeout = clusterTimeout * 1000;
 
 			// cluster -1 contains all data before the first webm cluster
 			if(currentCluster === -1) {
