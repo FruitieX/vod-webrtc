@@ -18,13 +18,17 @@ var rtcVideoPlayer = function(videoElement, videoPath, peerjsHost, peerjsPort) {
 		/* UI */
 
 		// DEBUG print
-		setInterval(function() {
-			var c = $("#xhrDL");
-			var ctx = c.getContext("2d");
-			ctx.moveTo(0,0);
-			ctx.lineTo(200,100);
-			ctx.stroke();
-		}, 1000);
+		var xhrDownload = 0;
+		var rtcDownload = 0;
+		var rtcUpload = 0;
+
+		var dataCallback = function() {
+			var a = [xhrDownload, rtcDownload, rtcUpload];
+			xhrDownload = 0; rtcDownload = 0; rtcUpload = 0;
+			return a;
+		};
+
+		debugCharts(dataCallback);
 
 		// enable the start button
 		$("#startButton").removeAttr("disabled");
@@ -94,6 +98,7 @@ var rtcVideoPlayer = function(videoElement, videoPath, peerjsHost, peerjsPort) {
 				dataConnection.on('data', function(data) {
 					if(data.method == 'getCluster') {
 						console.info('sending cluster ' + data.cluster);
+						rtcUpload += clusters[data.cluster].byteLength;
 						dataConnection.send(clusters[data.cluster]);
 					} else {
 						// unknown method
@@ -135,6 +140,8 @@ var rtcVideoPlayer = function(videoElement, videoPath, peerjsHost, peerjsPort) {
 						clearTimeout(rtcRequestTimeout);
 						if(dataConnections.indexOf(dataConnection) === -1)
 							dataConnections.push(dataConnection);
+
+						rtcDownload += data.byteLength;
 						rtcStoreClusterCallback(currentCluster, data, storeCallback);
 					} else {
 						// didn't have wanted piece, probably won't have next pieces either;
@@ -183,9 +190,11 @@ var rtcVideoPlayer = function(videoElement, videoPath, peerjsHost, peerjsPort) {
 
 			xhr.onreadystatechange = function() {
 				if(xhr.readyState == 4) { // readyState DONE
-					if (xhr.status == 206) // 206 (partial content)
-						rtcStoreClusterCallback(currentCluster, new Uint8Array(xhr.response), storeCallback);
-					else {
+					if (xhr.status == 206) { // 206 (partial content)
+						var data = new Uint8Array(xhr.response);
+						xhrDownload += data.byteLength;
+						rtcStoreClusterCallback(currentCluster, data, storeCallback);
+					} else {
 						failCallback(currentCluster);
 					}
 				}
