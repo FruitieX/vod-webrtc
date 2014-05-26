@@ -5,6 +5,7 @@ var rtcVideoPlayer = function(videoElement, videoPath, peerjsHost, peerjsPort) {
 		var clusterTimeout = 10; // how many seconds it takes to time out a request
 		var bufMinSeconds = 45; // try to keep at least this many seconds buffered
 		var dataConnectionCnt = 10; // try to connect to this many rtc peers
+		var peerRefreshInterval = 30; // how many seconds to refresh peer list in
 
 		var init = function() {
 			for (var i = 0; i < videoMetadata['clusters'].length; i++) {
@@ -89,20 +90,33 @@ var rtcVideoPlayer = function(videoElement, videoPath, peerjsHost, peerjsPort) {
 			});
 			peer.on('open', function() {
 				$("#peerid").text("Peer ID: " + peer.id);
-				peer.listAllPeers(function(peers) {
-					shuffle(peers);
-					console.log('got peers:');
-					console.log(peers);
-					for(var i = 0; i < peers.length && i < dataConnectionCnt; i++) {
-						// skip ourselves
-						if(peers[i] === peer.id)
-							continue;
+				var getPeers = function() {
+					peer.listAllPeers(function(peers) {
+						shuffle(peers);
+						console.log('refreshing peers, got:');
+						console.log(peers);
+						for(var i = 0; i < peers.length && dataConnections.length + pendingDataConnections.length < dataConnectionCnt; i++) {
+							// skip ourselves
+							if(peers[i] === peer.id)
+								continue;
 
-						var dataConnection = peer.connect(peers[i]);
-						// TODO: error handling
-						dataConnections.push(dataConnection);
-					}
-				});
+							var alreadyConnected = false;
+							for(var j = 0; j < dataConnections.length; j++) {
+								if(peers[i] === dataConnections[j].peer) {
+									alreadyConnected = true;
+									break;
+								}
+							}
+							if(!alreadyConnected) {
+								var dataConnection = peer.connect(peers[i]);
+								// TODO: error handling
+								dataConnections.push(dataConnection);
+							}
+						}
+					});
+				};
+				getPeers();
+				setInterval(getPeers, 1000 * peerRefreshInterval);
 			});
 			peer.on('connection', function(dataConnection) {
 				dataConnection.on('data', function(data) {
