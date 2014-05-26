@@ -3,7 +3,7 @@ var rtcVideoPlayer = function(videoElement, videoPath, peerjsHost, peerjsPort) {
 		// constants
 		var clusterConcurrency = 3; // how many clusters are fetched concurrently
 		var clusterTimeout = 10; // how many seconds it takes to time out a request
-		var bufMinSeconds = 30; // try to keep at least this many seconds buffered
+		var bufMinSeconds = 45; // try to keep at least this many seconds buffered
 		var dataConnectionCnt = 10; // try to connect to this many rtc peers
 
 		var init = function() {
@@ -62,7 +62,7 @@ var rtcVideoPlayer = function(videoElement, videoPath, peerjsHost, peerjsPort) {
 			//console.log('cluster ' + currentCluster + ' prio: ' + clusterPriority);
 			if(clusters[currentCluster]) { // cluster already stored?
 				storeCallback(currentCluster, clusters[currentCluster]);
-			} else if(!isWebRTCCapable || clusterPriority <= 1) { // one cluster ahead of playback, we need it ASAP!
+			} else if(!isWebRTCCapable || clusterPriority <= 2) { // one/two clusters ahead of playback, we need it ASAP!
 				xhrRequest(currentCluster, storeCallback, failCallback);
 			} else { // use WebRTC datachannels
 				rtcRequest(currentCluster, storeCallback, failCallback);

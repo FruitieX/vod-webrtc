@@ -45,9 +45,10 @@ var debugCharts = function (dataCallback) {
 			},
 			xAxis: {
 				type: 'datetime',
-				tickPixelInterval: 150
+				tickPixelInterval: 100
 			},
 			yAxis: {
+				tickPixelInterval: 20,
 				title: {
 					text: 'Bytes / sec'
 				},
@@ -60,6 +61,7 @@ var debugCharts = function (dataCallback) {
 			},
 			plotOptions: {
 				spline: {
+					enableMouseTracking: false,
 					lineWidth: 2,
 					marker: {
 						enabled: false
@@ -76,7 +78,7 @@ var debugCharts = function (dataCallback) {
 				enabled: false
 			},
 			series: [{
-				name: 'xhrDownload',
+				name: 'HTTP Server Download',
 				data: (function() {
 					// generate an array of random data
 					var data = [],
@@ -92,7 +94,7 @@ var debugCharts = function (dataCallback) {
 					return data;
 				})()
 			}, {
-				name: 'rtcDownload',
+				name: 'WebRTC Download',
 				data: (function() {
 					// generate an array of random data
 					var data = [],
@@ -108,7 +110,7 @@ var debugCharts = function (dataCallback) {
 					return data;
 				})()
 			}, {
-				name: 'rtcUpload',
+				name: 'WebRTC Upload',
 				data: (function() {
 					// generate an array of random data
 					var data = [],
