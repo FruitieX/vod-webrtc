@@ -98,7 +98,8 @@ var rtcVideoPlayer = function(videoElement, videoPath, peerjsHost, peerjsPort) {
 				dataConnection.on('data', function(data) {
 					if(data.method == 'getCluster') {
 						console.info('sending cluster ' + data.cluster);
-						rtcUpload += clusters[data.cluster].byteLength;
+						if(clusters[data.cluster].byteLength)
+							rtcUpload += clusters[data.cluster].byteLength;
 						dataConnection.send(clusters[data.cluster]);
 					} else {
 						// unknown method
@@ -141,7 +142,8 @@ var rtcVideoPlayer = function(videoElement, videoPath, peerjsHost, peerjsPort) {
 						if(dataConnections.indexOf(dataConnection) === -1)
 							dataConnections.push(dataConnection);
 
-						rtcDownload += data.byteLength;
+						if(data.byteLength)
+							rtcDownload += data.byteLength;
 						rtcStoreClusterCallback(currentCluster, data, storeCallback);
 					} else {
 						// didn't have wanted piece, probably won't have next pieces either;
@@ -192,7 +194,8 @@ var rtcVideoPlayer = function(videoElement, videoPath, peerjsHost, peerjsPort) {
 				if(xhr.readyState == 4) { // readyState DONE
 					if (xhr.status == 206) { // 206 (partial content)
 						var data = new Uint8Array(xhr.response);
-						xhrDownload += data.byteLength;
+						if(data.byteLength)
+							xhrDownload += data.byteLength;
 						rtcStoreClusterCallback(currentCluster, data, storeCallback);
 					} else {
 						failCallback(currentCluster);
