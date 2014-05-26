@@ -62,7 +62,7 @@ var rtcVideoPlayer = function(videoElement, videoPath, peerjsHost, peerjsPort) {
 			//console.log('cluster ' + currentCluster + ' prio: ' + clusterPriority);
 			if(clusters[currentCluster]) { // cluster already stored?
 				storeCallback(currentCluster, clusters[currentCluster]);
-			} else if(!isWebRTCCapable || clusterPriority <= 2) { // one/two clusters ahead of playback, we need it ASAP!
+			} else if(!isWebRTCCapable || clusterPriority <= 3) { // a few clusters ahead of playback, we need it ASAP!
 				xhrRequest(currentCluster, storeCallback, failCallback);
 			} else { // use WebRTC datachannels
 				rtcRequest(currentCluster, storeCallback, failCallback);
@@ -87,12 +87,19 @@ var rtcVideoPlayer = function(videoElement, videoPath, peerjsHost, peerjsPort) {
 					]
 				}
 			});
-			peer.listAllPeers(function(peers) {
-				for(var i = 0; i < peers.length && i < dataConnectionCnt; i++) {
-					var dataConnection = peer.connect(peers[i]);
-					// TODO: error handling
-					dataConnections.push(dataConnection);
-				}
+			peer.on('open', function() {
+				$("#peerid").text("Peer ID: " + peer.id);
+				peer.listAllPeers(function(peers) {
+					for(var i = 0; i < peers.length && i < dataConnectionCnt; i++) {
+						// skip ourselves
+						if(peers[i] === peer.id)
+							continue;
+
+						var dataConnection = peer.connect(peers[i]);
+						// TODO: error handling
+						dataConnections.push(dataConnection);
+					}
+				});
 			});
 			peer.on('connection', function(dataConnection) {
 				dataConnection.on('data', function(data) {
