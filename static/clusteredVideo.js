@@ -1,5 +1,9 @@
 /* clusteredVideo()
  *
+ * Copyright (c) 2014 Aalto University
+ * Copyright (c) 2014 Rasmus Eskola
+ * Licensed under the MIT License, see LICENSE for more information.
+ *
  * This function will attach a media source to the given video element, fill
  * the source buffer with data by calling bufCallback until we have
  * bufMinSeconds of buffer ahead of our playback position.

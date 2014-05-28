@@ -1,3 +1,14 @@
+/*
+ * rtcVideoPlayer()
+ *
+ * Uses the clusteredVideo.js library to play back a video by getting chunks
+ * over XHR and WebRTC when possible.
+ *
+ * Copyright (c) 2014 Aalto University
+ * Copyright (c) 2014 Rasmus Eskola
+ * Licensed under the MIT License, see LICENSE for more information.
+ */
+
 var rtcVideoPlayer = function(videoElement, videoPath, peerjsHost, peerjsPort) {
 	$.getJSON(videoPath + '.json', function(videoMetadata) {
 		// constants
