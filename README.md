@@ -6,8 +6,9 @@ setup
 * Get nodejs dependencies: `npm update`
 * Run the signaling server: `node server.js`
 * Edit the last line of `static/readVideoFile.js`, replace `/output` with the
-  relative path on the HTTP server to the wanted video file & metadata. Replace
-  `localhost` and `9000` with the host/port to your node server.
+  relative path on the HTTP server to the wanted video file & metadata (without
+  filename extension). Replace `localhost` and `9000` with the host/port to
+  your node server.
 * Example video & metadata can be downloaded from:
 	* http://fruitiex.org/output.webm
 	* http://fruitiex.org/output.json
@@ -16,14 +17,14 @@ setup
 
 chrome-friendly webm files:
 ---------------------------
-* `ffmpeg -i bbb\_sunflower\_2160p\_60fps\_normal.mp4 -vf scale=1920x1080 -threads 4 -c:v libvpx -b:v 12M -keyint\_min 150 -g 150 -c:a libvorbis output.webm`
+* `ffmpeg -i input.mp4 -vf scale=1920x1080 -threads 4 -c:v libvpx -b:v 12M -keyint_min 150 -g 150 -c:a libvorbis output.webm`
 
 if the video still won't play in chrome, fix keyframes to start of chunks:
 --------------------------------------------------------------------------
 * `export GOPATH=$HOME/go`
 * `cd $GOPATH`
 * `go get github.com/acolwell/mse-tools/...`
-* `bin/mse\_webm\_remuxer path/to/broken.webm path/to/fixed.webm`
+* `bin/mse_webm_remuxer path/to/broken.webm path/to/fixed.webm`
 
 generate chunk list from a webm file:
 -------------------------------------
