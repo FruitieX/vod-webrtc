@@ -6,8 +6,8 @@ setup
 * Get nodejs dependencies: `npm update`
 * Run the signaling server: `node server.js`
 * Edit the last line of `static/readVideoFile.js`, replace `/output` with the
-  relative path to the wanted video file & metadata. Replace `localhost` and
-  `9000` with the host/port to your node server.
+  relative path on the HTTP server to the wanted video file & metadata. Replace
+  `localhost` and `9000` with the host/port to your node server.
 * Example video & metadata can be downloaded from:
 	* http://fruitiex.org/output.webm
 	* http://fruitiex.org/output.json
